@@ -1,0 +1,61 @@
+name: Publish go runtime version
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'go/**'   # run only if something under go/ changed
+
+permissions:
+  contents: write   # needed to push tags with GITHUB_TOKEN
+
+jobs:
+  create_tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Git for tagging
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Get latest go/ tag and increment minor
+        id: get_tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Ensure all tags are available
+          git fetch --tags --force
+
+          prefix="go/v"
+
+          # Find the newest tag that starts with go/v*
+          latest_tag="$(git tag -l "${prefix}*" --sort=-v:refname | head -n1 || true)"
+          if [[ -z "${latest_tag}" ]]; then
+            latest_tag="${prefix}0.0.0"
+          fi
+          echo "Latest tag: ${latest_tag}"
+
+          # Strip the prefix "go/v" and parse semver
+          version="${latest_tag#${prefix}}"
+          IFS='.' read -r major minor patch <<< "${version}"
+
+          # Bump minor, reset patch
+          new_minor=$((minor + 1))
+          new_version="${prefix}${major}.${new_minor}.0"
+
+          echo "Next tag: ${new_version}"
+          echo "tag=${new_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push new tag
+        run: |
+          new_tag="${{ steps.get_tag.outputs.tag }}"
+          git tag "${new_tag}"
+          git push origin "${new_tag}"
