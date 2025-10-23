@@ -9,7 +9,16 @@ type Response struct {
 }
 
 func (r *Response) Get(ret interface{}) error {
-	return ConvertType(r.output, ret)
+	if r.isError {
+		return r.error
+	}
+
+	err := ConvertType(r.output, ret)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Response) GetAny() (any, error) {
