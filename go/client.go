@@ -157,15 +157,11 @@ type UpdateTTLRequest struct {
 	Cfg      sdk.WriteConfig `json:"cfg"`
 }
 
-type GetScopeFileRequest struct {
-	Scope   sdk.DataScope  `json:"scope"`
-	Request GetFileRequest `json:"request"`
-}
-
 // GetFileRequest represents the JSON structure for get file operations
 type GetFileRequest struct {
-	TenantId string `json:"tenantId"`
-	Path     string `json:"path"`
+	Scope    sdk.DataScope `json:"scope"`
+	TenantId string        `json:"tenantId"`
+	Path     string        `json:"path"`
 }
 
 // GetFileResponse represents the JSON structure for get file response
@@ -174,88 +170,60 @@ type GetFileResponse struct {
 	Metadata sdk.FileMetaData `json:"metadata"`
 }
 
-type ReadScopeFileContentRequest struct {
-	Scope   sdk.DataScope          `json:"scope"`
-	Request ReadFileContentRequest `json:"request"`
-}
-
 type ReadFileContentRequest struct {
-	TenantId string `json:"tenantId"`
-	Path     string `json:"path"`
+	Scope    sdk.DataScope `json:"scope"`
+	TenantId string        `json:"tenantId"`
+	Path     string        `json:"path"`
 }
 
 type ReadFileContentResponse struct {
 	Content string `json:"content"`
 }
 
-type GetScopeLinkRequest struct {
-	Scope   sdk.DataScope  `json:"scope"`
-	Request GetLinkRequest `json:"request"`
-}
-
 type GetLinkRequest struct {
-	TenantId string `json:"tenantId"`
-	Path     string `json:"path"`
+	Scope    sdk.DataScope `json:"scope"`
+	TenantId string        `json:"tenantId"`
+	Path     string        `json:"path"`
 }
 
 type GetLinkResponse struct {
 	Link string `json:"link"`
 }
 
-type PutScopeFileRequest struct {
-	Scope   sdk.DataScope  `json:"scope"`
-	Request PutFileRequest `json:"request"`
-}
-
 // PutFileRequest represents the JSON structure for put file operations
 type PutFileRequest struct {
-	TenantId      string `json:"tenantId"`
-	Path          string `json:"path"`
-	Content       string `json:"content"`
-	LocalFilePath string `json:"filePath"`
-}
-
-type DeleteScopeFileRequest struct {
-	Scope   sdk.DataScope     `json:"scope"`
-	Request DeleteFileRequest `json:"request"`
+	Scope         sdk.DataScope `json:"scope"`
+	TenantId      string        `json:"tenantId"`
+	Path          string        `json:"path"`
+	Content       string        `json:"content"`
+	LocalFilePath string        `json:"filePath"`
 }
 
 type DeleteFileRequest struct {
-	TenantId string `json:"tenantId"`
-	Path     string `json:"path"`
-}
-
-type RenameScopeFileRequest struct {
-	Scope   sdk.DataScope     `json:"scope"`
-	Request RenameFileRequest `json:"request"`
+	Scope    sdk.DataScope `json:"scope"`
+	TenantId string        `json:"tenantId"`
+	Path     string        `json:"path"`
 }
 
 type RenameFileRequest struct {
-	TenantId string `json:"tenantId"`
-	OldPath  string `json:"oldPath"`
-	NewPath  string `json:"newPath"`
-}
-
-type CreateScopeFolderRequest struct {
-	Scope   sdk.DataScope       `json:"scope"`
-	Request CreateFolderRequest `json:"request"`
+	Scope    sdk.DataScope `json:"scope"`
+	TenantId string        `json:"tenantId"`
+	OldPath  string        `json:"oldPath"`
+	NewPath  string        `json:"newPath"`
 }
 
 type CreateFolderRequest struct {
-	TenantId   string `json:"tenantId"`
-	FolderPath string `json:"folderPath"`
-}
-
-type ListScopeFolderRequest struct {
-	Scope   sdk.DataScope     `json:"scope"`
-	Request ListFolderRequest `json:"request"`
+	Scope      sdk.DataScope `json:"scope"`
+	TenantId   string        `json:"tenantId"`
+	FolderPath string        `json:"folderPath"`
 }
 
 type ListFolderRequest struct {
-	TenantId    string  `json:"tenantId"`
-	FolderPath  string  `json:"folderPath"`
-	OffsetToken *string `json:"offsetToken"`
-	Limit       int32   `json:"limit"`
+	Scope       sdk.DataScope `json:"scope"`
+	TenantId    string        `json:"tenantId"`
+	FolderPath  string        `json:"folderPath"`
+	OffsetToken *string       `json:"offsetToken"`
+	Limit       int32         `json:"limit"`
 }
 
 type ListFolderResponse struct {
@@ -329,14 +297,15 @@ type ServiceClient interface {
 	DeleteData(sessionId string, req DeleteDataRequest) error
 	UpdateTTL(sessionId string, req UpdateTTLRequest) error
 
-	GetFile(sessionId string, req GetScopeFileRequest) (GetFileResponse, error)
-	PutFile(sessionId string, req PutScopeFileRequest) error
-	DeleteFile(sessionId string, req DeleteScopeFileRequest) error
-	RenameFile(sessionId string, req RenameScopeFileRequest) error
-	GetFileDownloadLink(sessionId string, req GetScopeFileRequest) (GetLinkResponse, error)
-	GetFileUploadLink(sessionId string, req GetScopeFileRequest) (GetLinkResponse, error)
-	ListFolder(sessionId string, req ListScopeFolderRequest) (ListFolderResponse, error)
-	CreateFolder(sessionId string, req CreateScopeFolderRequest) error
+	ReadFileContent(sessionId string, req ReadFileContentRequest) (ReadFileContentResponse, error)
+	GetFile(sessionId string, req GetFileRequest) (GetFileResponse, error)
+	PutFile(sessionId string, req PutFileRequest) error
+	DeleteFile(sessionId string, req DeleteFileRequest) error
+	RenameFile(sessionId string, req RenameFileRequest) error
+	GetFileDownloadLink(sessionId string, req GetFileRequest) (GetLinkResponse, error)
+	GetFileUploadLink(sessionId string, req GetFileRequest) (GetLinkResponse, error)
+	ListFolder(sessionId string, req ListFolderRequest) (ListFolderResponse, error)
+	CreateFolder(sessionId string, req CreateFolderRequest) error
 
 	EmitSignal(sessionId string, req SignalEmitRequest) error
 	WaitForSignal(sessionId string, req SignalWaitRequest) (SignalWaitResponse, error)
@@ -452,43 +421,49 @@ func (sc *ServiceClientImpl) UpdateTTL(sessionId string, req UpdateTTLRequest) e
 	return executeApiWithoutResponse(sc.httpClient, sc.baseURL, sessionId, "v1/context/db/update-ttl", req)
 }
 
-func (sc *ServiceClientImpl) GetFile(sessionId string, req GetScopeFileRequest) (GetFileResponse, error) {
+func (sc *ServiceClientImpl) ReadFileContent(sessionId string, req ReadFileContentRequest) (ReadFileContentResponse, error) {
+	var res ReadFileContentResponse
+	err := executeApiWithResponse(sc.httpClient, sc.baseURL, sessionId, "v1/context/file/read", req, &res)
+	return res, err
+}
+
+func (sc *ServiceClientImpl) GetFile(sessionId string, req GetFileRequest) (GetFileResponse, error) {
 	var res GetFileResponse
 	err := executeApiWithResponse(sc.httpClient, sc.baseURL, sessionId, "v1/context/file/get", req, &res)
 	return res, err
 }
 
-func (sc *ServiceClientImpl) GetFileDownloadLink(sessionId string, req GetScopeFileRequest) (GetLinkResponse, error) {
+func (sc *ServiceClientImpl) GetFileDownloadLink(sessionId string, req GetFileRequest) (GetLinkResponse, error) {
 	var res GetLinkResponse
 	err := executeApiWithResponse(sc.httpClient, sc.baseURL, sessionId, "v1/context/file/get-download-link", req, &res)
 	return res, err
 }
 
-func (sc *ServiceClientImpl) PutFile(sessionId string, req PutScopeFileRequest) error {
+func (sc *ServiceClientImpl) PutFile(sessionId string, req PutFileRequest) error {
 	return executeApiWithoutResponse(sc.httpClient, sc.baseURL, sessionId, "v1/context/file/put", req)
 }
 
-func (sc *ServiceClientImpl) GetFileUploadLink(sessionId string, req GetScopeFileRequest) (GetLinkResponse, error) {
+func (sc *ServiceClientImpl) GetFileUploadLink(sessionId string, req GetFileRequest) (GetLinkResponse, error) {
 	var res GetLinkResponse
 	err := executeApiWithResponse(sc.httpClient, sc.baseURL, sessionId, "v1/context/file/get-upload-link", req, &res)
 	return res, err
 }
 
-func (sc *ServiceClientImpl) DeleteFile(sessionId string, req DeleteScopeFileRequest) error {
+func (sc *ServiceClientImpl) DeleteFile(sessionId string, req DeleteFileRequest) error {
 	return executeApiWithoutResponse(sc.httpClient, sc.baseURL, sessionId, "v1/context/file/delete", req)
 }
 
-func (sc *ServiceClientImpl) RenameFile(sessionId string, req RenameScopeFileRequest) error {
+func (sc *ServiceClientImpl) RenameFile(sessionId string, req RenameFileRequest) error {
 	return executeApiWithoutResponse(sc.httpClient, sc.baseURL, sessionId, "v1/context/file/rename", req)
 }
 
-func (sc *ServiceClientImpl) ListFolder(sessionId string, req ListScopeFolderRequest) (ListFolderResponse, error) {
+func (sc *ServiceClientImpl) ListFolder(sessionId string, req ListFolderRequest) (ListFolderResponse, error) {
 	var res ListFolderResponse
 	err := executeApiWithResponse(sc.httpClient, sc.baseURL, sessionId, "v1/context/file/list", req, &res)
 	return res, err
 }
 
-func (sc *ServiceClientImpl) CreateFolder(sessionId string, req CreateScopeFolderRequest) error {
+func (sc *ServiceClientImpl) CreateFolder(sessionId string, req CreateFolderRequest) error {
 	return executeApiWithoutResponse(sc.httpClient, sc.baseURL, sessionId, "v1/context/file/create-folder", req)
 }
 
