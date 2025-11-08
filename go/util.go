@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func ValueToServiceComplete(output any) ServiceCompleteEvent {
@@ -273,4 +274,80 @@ func cryptoSeed() (int64, error) {
 		return 0, err
 	}
 	return n.Int64(), nil
+}
+
+// RetryWithBackoff runs action, retrying up to `retries` times when it returns a non-nil error.
+// Backoff grows exponentially from initialDelay, clamped to [minDelay, maxDelay], with ±20% jitter.
+// Returns nil on success, or the last error after exhausting retries.
+func RetryWithBackoff(
+	action func() error,
+	retries int,
+	initialDelay, minDelay,
+	maxDelay time.Duration,
+	jitterFrac float64,
+) error {
+	if action == nil {
+		return errors.New("action is nil")
+	}
+	if retries < 0 {
+		return errors.New("retries must be >= 0")
+	}
+	// Normalize delays
+	if minDelay < 0 {
+		minDelay = 0
+	}
+	if maxDelay > 0 && minDelay > maxDelay {
+		minDelay, maxDelay = maxDelay, minDelay
+	}
+	if maxDelay == 0 {
+		maxDelay = time.Hour // a generous cap if none provided
+	}
+	if initialDelay <= 0 {
+		initialDelay = minDelay
+	}
+	if initialDelay < minDelay {
+		initialDelay = minDelay
+	}
+
+	rng := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
+
+	var lastErr error
+	for attempt := 0; attempt <= retries; attempt++ {
+		if err := action(); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+
+		// No sleep after final attempt
+		if attempt == retries {
+			break
+		}
+
+		// Exponential backoff: d = initial * 2^attempt
+		delay := initialDelay << attempt
+		if delay < minDelay {
+			delay = minDelay
+		}
+		if delay > maxDelay {
+			delay = maxDelay
+		}
+
+		// Apply jitter: random in [delay*(1-j), delay*(1+j)]
+		if delay > 0 && jitterFrac > 0 {
+			df := float64(delay)
+			j := (rng.Float64()*2 - 1) * (df * jitterFrac) // [-df*j, +df*j]
+			delay = time.Duration(df + j)
+			// Re-clamp within [minDelay, maxDelay]
+			if delay < minDelay {
+				delay = minDelay
+			}
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+		}
+
+		time.Sleep(delay)
+	}
+	return lastErr
 }

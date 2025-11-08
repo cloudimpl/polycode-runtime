@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"runtime/debug"
+	"time"
 )
 
 type haltType struct {
@@ -188,14 +189,9 @@ func (c ClientRuntime) Start() error {
 		Routes:      LoadRoutes(c.httpHandler),
 	}
 
-	for {
-		err = c.client.StartApp(req)
-		if err == nil {
-			break
-		}
-	}
-
-	return nil
+	return RetryWithBackoff(func() error {
+		return c.client.StartApp(req)
+	}, 5, 0, 100*time.Millisecond, 5*time.Second, 0.2)
 }
 
 func (c ClientRuntime) RunService(ctx context.Context, event ServiceStartEvent) (evt ServiceCompleteEvent) {
