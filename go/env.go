@@ -6,9 +6,11 @@ import (
 )
 
 type ClientEnv struct {
-	AppName    string `json:"appName"`
-	AppPort    int64  `json:"appPort"`
-	SidecarApi string `json:"sidecarApi"`
+	AppName       string `json:"appName"`
+	AppPort       int64  `json:"appPort"`
+	SidecarApi    string `json:"sidecarApi"`
+	CatalogId     string `json:"catalogId"`
+	FileStorePath string `json:"s3FilesBucket"`
 }
 
 func initClientEnv() (ClientEnv, error) {
@@ -36,9 +38,14 @@ func initClientEnv() (ClientEnv, error) {
 		sidecarApi = "http://localhost:9999"
 	}
 
+	catalogId := os.Getenv("polycode_CATALOG_ID")
+	fileStorePath := os.Getenv("polycode_FILE_STORE_PATH")
+
 	return ClientEnv{
-		AppName:    appName,
-		AppPort:    int64(appPort),
-		SidecarApi: sidecarApi,
+		AppName:       appName,
+		AppPort:       int64(appPort),
+		SidecarApi:    sidecarApi,
+		CatalogId:     catalogId,
+		FileStorePath: fileStorePath,
 	}, nil
 }
