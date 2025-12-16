@@ -41,7 +41,7 @@ func (s *ApiServerImpl) Start(listener ApiServerListener) {
 
 	go func() {
 		// Start the Gin server
-		err := s.ginEngine.Run(fmt.Sprintf(":%d", s.port))
+		err := s.ginEngine.Run(fmt.Sprintf("0.0.0.0:%d", s.port))
 		if err != nil {
 			log.Fatalf("Failed to start api server: %s", err.Error())
 		}
