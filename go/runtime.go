@@ -184,7 +184,7 @@ func (c ClientRuntime) Start() error {
 
 	req := StartAppRequest{
 		AppName:     c.env.AppName,
-		AppEndpoint: fmt.Sprintf("http://127.0.0.1:%d", c.env.AppPort),
+		AppEndpoint: fmt.Sprintf("http://localhost:%d", c.env.AppPort),
 		Services:    services,
 		Routes:      LoadRoutes(c.httpHandler),
 	}
